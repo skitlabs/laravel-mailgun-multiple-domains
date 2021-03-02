@@ -1,0 +1,47 @@
+{
+    "name": "skitlabs/laravel-mailgun-multiple-domains",
+    "description": "Multiple sender domains, without modifying calling code",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Jurre Vriezinga",
+            "email": "j.vriezinga@gmail.com"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "SkitLabs\\LaravelMailGunMultipleDomains\\": "src"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "SkitLabs\\LaravelMailGunMultipleDomains\\Tests\\": "tests"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "SkitLabs\\LaravelMailGunMultipleDomains\\ServiceProvider"
+            ]
+        }
+    },
+    "require": {
+        "php": "^7.4|^8.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^6.0",
+        "phpunit/phpunit": "^9.5",
+        "symfony/var-dumper": "^5.2",
+        "guzzlehttp/guzzle": "^7.2",
+        "phpstan/phpstan": "^0.12.80",
+        "vimeo/psalm": "^4.6",
+        "illuminate/contracts": "^8.29"
+    },
+    "scripts": {
+        "analyse": ["@phpstan", "@psalm"],
+        "phpstan": "phpstan analyse src tests --level 8",
+        "psalm": "psalm --show-info=true",
+        "test": "phpunit -c phpunit.xml --testdox"
+    }
+}
