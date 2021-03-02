@@ -1,12 +1,18 @@
 # Multiple Mailgun Domains in one Laravel app
 
-Sending email through Mailgun is a breeze, as long as you're sending from one domain.   
-For any additional domain, the calling code needs to manage the transport credentials.   
-This is a lot of repeated code, and it's easy t
+Sending email through Mailgun is a breeze, so long as you're sending from **one domain** only.   
+For any additional domains, the _calling code_ needs to manage the transport credentials.   
+This can lead to a lot of repeated code, helpers, or services, you need to copy between projects.   
+As developers, this is one more action we need to remember; for every mailable in the system.   
 
+## The solution
 
-This package dynamically reconfigures the current `Transport`, based on the `Mailable` sender (`from`), without any change to your app code.   
-This works for direct and queued messages alike, with no extra configuration 🚀
+This package contains a listener that hooks into Laravel's `Illuminate\Mail\Events\MessageSending` event. This event is dispatched _just before_ sending the e-mail.   
+The listener then dynamically reconfigures the current `Transport`, based on the `from` attribute. This works for direct and queued messages alike, with no extra configuration!
+
+This package will only affect e-mails sent through the `mailgun`-mailer. Any other channels will be left untouched. 
+
+> Thanks to Laravel's auto-discovery (❤), no assembly required!   
 
 ## Installation
 
@@ -16,12 +22,18 @@ You can install the package via composer:
 composer require skitlabs/laravel-mailgun-multiple-domains
 ```
 
+### Requirements
+There are a few requirements for this to work;
+
+* PHP 8.0, or 7.4
+* Laravel >= 8.0 (although it will _likely_ work on any version >= 5.5)
+* Laravel needs to use `swiftmailer/swiftmailer` internally (default)
+* Your configured mailer is named `mailgun` (default)
+
 ## Usage
 
-This package contains a single event listener that modifies the mailer `Transport` on the fly.   
-If you've configured mailgun under `mg.domain.tld`, and your secret works for all domains you are sending from; there is nothing more to do! 🎉    
+If you've configured mailgun under `mg.{domain.tld}`, and your secret works for all domains you are sending from; you're ready to start sending e-mail! 👍     
 
-The event listener will automatically change the mailgun domain, based on the `From` attribute.    
 Let's say you're sending a message as `sales@acme.app`. Just before sending the message, this package will set the mailgun domain to: `mg.acme.app`.    
 
 ### What if I need to customize my settings, per domain?
@@ -55,7 +67,7 @@ return [
 ```
 
 > If a domain is not specified, it defaults to `mg.{domain.tld}`.    
-> If the `secret` or `endpoint` are not configured, these fallback to your configured defaults.    
+> If the `secret` or `endpoint` are not configured, these fallback to your configured global defaults.    
 
 ## Testing
 
