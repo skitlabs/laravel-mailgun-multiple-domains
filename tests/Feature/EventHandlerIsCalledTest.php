@@ -17,10 +17,22 @@ class EventHandlerIsCalledTest extends TestCase
     {
         parent::setUp();
 
+        // Assert that our Listener is set up to receive the event
+        $isConfigured = collect(
+                resolve(Dispatcher::class)->getListeners(MessageSending::class)
+            )->filter(static function (\Closure $wrapper) : bool {
+                $listener = (new \ReflectionFunction($wrapper))->getStaticVariables()['listener'] ?? null;
+
+                return $listener === ReconfigureMailGunOnMessageSending::class;
+            })->count() === 1;
+
+        $this->assertTrue($isConfigured);
+
         // Invoke the mailer once, and verify that 'phpunit.xml' env is set
         /** @var MailgunTransport $transport */
-        $transport = Mail::mailer('mailgun')->getSwiftMailer()->getTransport();
+        $transport = Mail::mailer()->getSwiftMailer()->getTransport();
 
+        $this->assertInstanceOf(MailgunTransport::class, $transport);
         $this->assertEquals('foo.bar.baz', $transport->getDomain());
         $this->assertEquals('qwe-asd-zxc', $transport->getKey());
         $this->assertEquals('api.mailgun.net', $transport->getEndpoint());
@@ -58,7 +70,6 @@ class EventHandlerIsCalledTest extends TestCase
             $transport = Mail::mailer()->getSwiftMailer()->getTransport();
 
             $this->assertInstanceOf(MailgunTransport::class, $transport);
-
             $this->assertEquals('custom-mg.example.net', $transport->getDomain());
             $this->assertEquals('123-456-789', $transport->getKey());
             $this->assertEquals('api.eu.mailgun.net', $transport->getEndpoint());
@@ -86,7 +97,6 @@ class EventHandlerIsCalledTest extends TestCase
             $transport = Mail::mailer()->getSwiftMailer()->getTransport();
 
             $this->assertInstanceOf(MailgunTransport::class, $transport);
-
             $this->assertEquals('custom-mg.example.net', $transport->getDomain());
             $this->assertEquals('123-456-789', $transport->getKey());
             $this->assertEquals('api.eu.mailgun.net', $transport->getEndpoint());
@@ -99,7 +109,6 @@ class EventHandlerIsCalledTest extends TestCase
             $transport = Mail::mailer()->getSwiftMailer()->getTransport();
 
             $this->assertInstanceOf(MailgunTransport::class, $transport);
-
             $this->assertEquals('mg-marketing.awesome.app', $transport->getDomain());
             $this->assertEquals('abc-def-ghi', $transport->getKey());
             $this->assertEquals('api.mailgun.net', $transport->getEndpoint());
@@ -116,7 +125,6 @@ class EventHandlerIsCalledTest extends TestCase
             $transport = Mail::mailer()->getSwiftMailer()->getTransport();
 
             $this->assertInstanceOf(MailgunTransport::class, $transport);
-
             $this->assertEquals('mg.example.net', $transport->getDomain());
             $this->assertEquals('qwe-asd-zxc', $transport->getKey());
             $this->assertEquals('api.mailgun.net', $transport->getEndpoint());
@@ -143,10 +151,12 @@ class EventHandlerIsCalledTest extends TestCase
 
     private function resetListeners() : void
     {
+        $dispatcher = resolve(Dispatcher::class);
+
         // Forget about any previous listeners
-        resolve(Dispatcher::class)->forget(MessageSending::class);
+        $dispatcher->forget(MessageSending::class);
 
         // Set up this project listener
-        resolve(Dispatcher::class)->listen(MessageSending::class, ReconfigureMailGunOnMessageSending::class);
+        $dispatcher->listen(MessageSending::class, ReconfigureMailGunOnMessageSending::class);
     }
 }
