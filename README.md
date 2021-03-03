@@ -1,18 +1,30 @@
 # Multiple Mailgun Domains in one Laravel app
 
 Sending email through Mailgun is a breeze, so long as you're sending from **one domain** only.   
-For any additional domains, the _calling code_ needs to manage the transport credentials.   
-This can lead to a lot of repeated code, helpers, or services, you need to copy between projects.   
-As developers, this is one more action we need to remember; for every mailable in the system.   
+For any additional domains, the _calling code_ needs to determine which mailer transport to use.   
+This can be especially annoying if the mailer to use depends on the sender, which is set inside the mailable.   
+This can lead to a lot of repeated code, a helper, or service, you need to copy between projects.   
+
+> Using this package, the _calling code_ is no longer concerned with the configured mailers.    
+
+```php
+<?php declare(strict_types=1);
+
+use Illuminate\Support\Facades\Mail;
+
+// So this
+Mail::mailer('mailgun-acme.tld')->to(...)->queue(...);
+
+// Can be as simple as this
+Mail::to(...)->queue(...);
+```
 
 ## The solution
 
-This package contains a listener that hooks into Laravel's `Illuminate\Mail\Events\MessageSending` event. This event is dispatched _just before_ sending the e-mail.   
-The listener then dynamically reconfigures the current `Transport`, based on the `from` attribute. This works for direct and queued messages alike, with no extra configuration!
+This package contains a listener that hooks into the `Illuminate\Mail\Events\MessageSending` event, which is dispatched _just before_ sending the e-mail.   
+It then reconfigures the current `Transport`, based on the `from` domain in the message. This works for direct and queued messages alike, with no extra configuration!   
 
-This package will only affect e-mails sent through the `mailgun`-mailer. Any other channels will be left untouched. 
-
-> Thanks to Laravel's auto-discovery (❤), no assembly required!   
+> This package will only affect e-mails sent through the `mailgun`-mailer. Any other channels will be left untouched. 
 
 ## Installation
 
@@ -28,7 +40,7 @@ There are a few requirements for this to work;
 * PHP 8.0, or 7.4
 * Laravel >= 8.0 (although it will _likely_ work on any version >= 5.5)
 * Laravel needs to use `swiftmailer/swiftmailer` internally (default)
-* Your configured mailer is named `mailgun` (default)
+* Your configured mailer (for mailgun) is named `mailgun` (default)
 
 ## Usage
 
@@ -36,8 +48,10 @@ If you've configured mailgun under `mg.{domain.tld}`, and your secret works for 
 
 Let's say you're sending a message as `sales@acme.app`. Just before sending the message, this package will set the mailgun domain to: `mg.acme.app`.    
 
+> Thanks to Laravel's auto-discovery (❤), no assembly required!   
+   
 ### What if I need to customize my settings, per domain?
-If you have mailgun configured at custom subdomains, need multiple API secrets, or switch between endpoints;   
+If you have mailgun configured at custom subdomains, need multiple API secrets, or to switch between endpoints;   
 All you have to do is add the sending domains to your mailgun configuration in the key `domains`.       
 
 ```php
@@ -81,4 +95,4 @@ Please see [CHANGELOG](CHANGELOG.md) for more information on what has changed re
 
 ## License
 
-The MIT License (MIT). Please see [License File](LICENSE.md) for more information.
+The MIT License (MIT). Please see [License File](LICENSE) for more information.
