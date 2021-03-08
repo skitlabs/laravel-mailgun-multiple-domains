@@ -7,19 +7,6 @@ use SkitLabs\LaravelMailGunMultipleDomains\Contracts\MailGunSenderPropertiesReso
 
 class MailGunSenderPropertiesFromServiceConfigResolver implements MailGunSenderPropertiesResolver
 {
-    /** @inheritDoc */
-    public function domainNameFrom($emailAddress) : string
-    {
-        // ['info@domain.tld' => 'Acme Info'] and ['info@domain.tld']
-        if (is_array($emailAddress)) {
-            $key = array_key_first($emailAddress);
-
-            return is_string($key) ? $key : ($emailAddress[0] ?? '');
-        }
-
-        return $emailAddress;
-    }
-
     /**
      * Get the mailgun domain for a given sender/from email-address.
      * This defaults to 'mg.{domain.tld}', but can be overwritten by
@@ -30,17 +17,14 @@ class MailGunSenderPropertiesFromServiceConfigResolver implements MailGunSenderP
      *
      * @return array{domain:string, secret:string, endpoint:string}
      */
-    public function propertiesForDomain(string $senderDomain) : array
+    public function propertiesForDomain(string $domainName) : array
     {
-        $parts = explode('@', $senderDomain);
-        $domain = mb_strtolower(array_pop($parts));
-
         $domains = (array) Config::get('services.mailgun.domains', []);
 
         return [
-            'domain' => (string) ($domains[$domain]['domain'] ?? 'mg.' . $domain),
-            'secret' => (string) ($domains[$domain]['secret'] ?? Config::get('services.mailgun.secret')),
-            'endpoint' => (string) ($domains[$domain]['endpoint'] ?? Config::get('services.mailgun.endpoint', 'api.mailgun.net')),
+            'domain' => (string) ($domains[$domainName]['domain'] ?? 'mg.' . $domainName),
+            'secret' => (string) ($domains[$domainName]['secret'] ?? Config::get('services.mailgun.secret')),
+            'endpoint' => (string) ($domains[$domainName]['endpoint'] ?? Config::get('services.mailgun.endpoint', 'api.mailgun.net')),
         ];
     }
 }

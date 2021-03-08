@@ -32,9 +32,9 @@ class ReconfigureMailGunOnMessageSending
             return;
         }
 
-        $senderDomain = $this->resolver->domainNameFrom($event->message->getFrom());
-
-        ['domain' => $domain, 'secret' => $secret, 'endpoint' => $endpoint] = $this->resolver->propertiesForDomain($senderDomain);
+        ['domain' => $domain, 'secret' => $secret, 'endpoint' => $endpoint] = $this->resolver->propertiesForDomain(
+            $this->domainNameFrom($event->message->getFrom()),
+        );
 
         $this->configureSender($domain, $secret, $endpoint);
     }
@@ -48,6 +48,31 @@ class ReconfigureMailGunOnMessageSending
         $driver = (string) Config::get('mail.driver', Config::get('mail.default'));
 
         return strtolower($driver) === 'mailgun';
+    }
+
+    /**
+     * Take an email-address (j.doe@example.net) and return the domain name (example.net).
+     *
+     * @note The email-address can either be passed as;
+     * ['info@domain.tld' => 'Acme Info'], ['info@domain.tld'], 'info@domain.tld'
+     * @note The domain (example.net) is always returned as lower-case.
+     *
+     * @param array<string, string>|array<int, string>|string|mixed $emailAddress
+     */
+    private function domainNameFrom($emailAddress) : string
+    {
+        // ['info@domain.tld' => 'Acme Info'] and ['info@domain.tld']
+        if (is_array($emailAddress)) {
+            $key = array_key_first($emailAddress);
+
+            $sender = is_string($key) ? $key : (string) ($emailAddress[0] ?? '');
+        } else {
+            $sender = (string) $emailAddress;
+        }
+
+        $parts = explode('@', $sender);
+
+        return mb_strtolower(array_pop($parts));
     }
 
     /**

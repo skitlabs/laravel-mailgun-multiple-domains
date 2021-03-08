@@ -85,7 +85,7 @@ return [
 
 ### What if I need to customize how these settings are determined?
 If the standard way of resolving sender properties is not suitable for your use-case, create a custom resolver that implements `SkitLabs\LaravelMailGunMultipleDomains\Contracts\MailGunSenderPropertiesResolver`.   
-In short, this means you'll have to implement two methods; [domainNameFrom($emailAddress)](src/Contracts/MailGunSenderPropertiesResolver.php) and [propertiesForDomain(string $senderDomain)](src/Contracts/MailGunSenderPropertiesResolver.php). See the [default implementation](src/Resolvers/MailGunSenderPropertiesFromServiceConfigResolver.php) for inspiration.   
+In short, this means you'll have to implement the method [propertiesForDomain()](src/Contracts/MailGunSenderPropertiesResolver.php). See the [default implementation](src/Resolvers/MailGunSenderPropertiesFromServiceConfigResolver.php) for inspiration.   
 
 Once you have your own concrete implementation, overwrite the default bind in any of your service providers;
 
