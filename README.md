@@ -83,6 +83,32 @@ return [
 > If a domain is not specified, it defaults to `mg.{domain.tld}`.    
 > If the `secret` or `endpoint` are not configured, these fallback to your configured global defaults.    
 
+### What if I need to customize how these settings are determined?
+If the standard way of resolving sender properties is not suitable for your use-case, create a custom resolver that implements `SkitLabs\LaravelMailGunMultipleDomains\Contracts\MailGunSenderPropertiesResolver`.   
+In short, this means you'll have to implement two methods; [domainNameFrom($emailAddress)](src/Contracts/MailGunSenderPropertiesResolver.php) and [propertiesForDomain(string $senderDomain)](src/Contracts/MailGunSenderPropertiesResolver.php). See the [default implementation](src/Resolvers/MailGunSenderPropertiesFromServiceConfigResolver.php) for inspiration.   
+
+Once you have your own concrete implementation, overwrite the default bind in any of your service providers;
+
+```php
+<?php declare(strict_types=1);
+
+use Illuminate\Support\ServiceProvider;
+use SkitLabs\LaravelMailGunMultipleDomains\Contracts\MailGunSenderPropertiesResolver;
+
+// app/Providers/AppServiceProvider.php
+class AppServiceProvider extends ServiceProvider
+{
+    public function register()
+    {
+        // ...
+
+        $this->app->bind(MailGunSenderPropertiesResolver::class, static function () : MailGunSenderPropertiesResolver {
+            return new \Acme\CustomSenderPropertiesResolver();        
+        });
+    }
+}
+```
+
 ## Testing
 
 ```bash

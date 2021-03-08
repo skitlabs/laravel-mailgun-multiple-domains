@@ -2,9 +2,12 @@
 
 namespace SkitLabs\LaravelMailGunMultipleDomains\Providers;
 
+use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
 use Illuminate\Mail\Events\MessageSending;
+use SkitLabs\LaravelMailGunMultipleDomains\Contracts\MailGunSenderPropertiesResolver;
 use SkitLabs\LaravelMailGunMultipleDomains\Listeners\ReconfigureMailGunOnMessageSending;
+use SkitLabs\LaravelMailGunMultipleDomains\Resolvers\MailGunSenderPropertiesFromServiceConfigResolver;
 
 class EventServiceProvider extends ServiceProvider
 {
@@ -14,4 +17,20 @@ class EventServiceProvider extends ServiceProvider
             ReconfigureMailGunOnMessageSending::class,
         ],
     ];
+
+    public function register()
+    {
+        parent::register();
+
+        // Bind the default resolver, consumers can overwrite the implementation returned in their own ServiceProviders
+        $this->app->bind(MailGunSenderPropertiesResolver::class, static function () : MailGunSenderPropertiesResolver {
+            return new MailGunSenderPropertiesFromServiceConfigResolver();
+        });
+
+        $this->app->bind(ReconfigureMailGunOnMessageSending::class, static function (Application $app) : ReconfigureMailGunOnMessageSending {
+            return new ReconfigureMailGunOnMessageSending(
+                $app->get(MailGunSenderPropertiesResolver::class),
+            );
+        });
+    }
 }
