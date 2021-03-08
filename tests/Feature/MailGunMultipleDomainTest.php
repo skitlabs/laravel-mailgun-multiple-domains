@@ -144,15 +144,7 @@ class MailGunMultipleDomainTest extends TestCase
     public function consumer_can_override_resolver() : void
     {
         $resolver = new class implements MailGunSenderPropertiesResolver {
-            public bool $domainNameResolved = false;
             public bool $propertiesResolved = false;
-
-            public function domainNameFrom($emailAddress): string
-            {
-                $this->domainNameResolved = $emailAddress === ['foo@bar.baz' => null];
-
-                return 'bar.baz';
-            }
 
             public function propertiesForDomain(string $senderDomain): array
             {
@@ -170,12 +162,10 @@ class MailGunMultipleDomainTest extends TestCase
             return $resolver;
         });
 
-        $this->assertFalse($resolver->domainNameResolved);
         $this->assertFalse($resolver->propertiesResolved);
 
         $this->sendFakedEmail('foo@bar.baz', static fn () => false);
 
-        $this->assertTrue($resolver->domainNameResolved);
         $this->assertTrue($resolver->propertiesResolved);
     }
 
