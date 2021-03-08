@@ -7,11 +7,13 @@ use Illuminate\Mail\Events\MessageSending;
 use Illuminate\Mail\Transport\MailgunTransport;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Mail;
+use SkitLabs\LaravelMailGunMultipleDomains\Contracts\MailGunSenderPropertiesResolver;
 use SkitLabs\LaravelMailGunMultipleDomains\Listeners\ReconfigureMailGunOnMessageSending;
+use SkitLabs\LaravelMailGunMultipleDomains\Resolvers\MailGunSenderPropertiesFromServiceConfigResolver;
 use SkitLabs\LaravelMailGunMultipleDomains\Tests\Fixtures\TestMailable;
 use SkitLabs\LaravelMailGunMultipleDomains\Tests\TestCase;
 
-class EventHandlerIsCalledTest extends TestCase
+class MailGunMultipleDomainTest extends TestCase
 {
     public function setUp() : void
     {
@@ -129,6 +131,52 @@ class EventHandlerIsCalledTest extends TestCase
             $this->assertEquals('qwe-asd-zxc', $transport->getKey());
             $this->assertEquals('api.mailgun.net', $transport->getEndpoint());
         });
+    }
+
+    /** @test */
+    public function uses_default_resolver() : void
+    {
+        $this->assertTrue($this->app->has(MailGunSenderPropertiesResolver::class));
+        $this->assertEquals(MailGunSenderPropertiesFromServiceConfigResolver::class, get_class($this->app->get(MailGunSenderPropertiesResolver::class)));
+    }
+
+    /** @test */
+    public function consumer_can_override_resolver() : void
+    {
+        $resolver = new class implements MailGunSenderPropertiesResolver {
+            public bool $domainNameResolved = false;
+            public bool $propertiesResolved = false;
+
+            public function domainNameFrom($emailAddress): string
+            {
+                $this->domainNameResolved = $emailAddress === ['foo@bar.baz' => null];
+
+                return 'bar.baz';
+            }
+
+            public function propertiesForDomain(string $senderDomain): array
+            {
+                $this->propertiesResolved = $senderDomain === 'bar.baz';
+
+                return [
+                    'domain' => 'mg.bar.baz',
+                    'secret' => '123123-456456',
+                    'endpoint' => 'custom-endpoint.mailgun.net',
+                ];
+            }
+        };
+
+        $this->app->bind(MailGunSenderPropertiesResolver::class, static function () use ($resolver) : MailGunSenderPropertiesResolver {
+            return $resolver;
+        });
+
+        $this->assertFalse($resolver->domainNameResolved);
+        $this->assertFalse($resolver->propertiesResolved);
+
+        $this->sendFakedEmail('foo@bar.baz', static fn () => false);
+
+        $this->assertTrue($resolver->domainNameResolved);
+        $this->assertTrue($resolver->propertiesResolved);
     }
 
     private function sendFakedEmail(string $from, \Closure $closure) : void
