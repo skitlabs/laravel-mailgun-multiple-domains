@@ -7,9 +7,17 @@ use Illuminate\Mail\MailManager;
 use Illuminate\Mail\Transport\MailgunTransport;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Mail;
+use SkitLabs\LaravelMailGunMultipleDomains\Contracts\MailGunSenderPropertiesResolver;
 
 class ReconfigureMailGunOnMessageSending
 {
+    private MailGunSenderPropertiesResolver $resolver;
+
+    public function __construct(MailGunSenderPropertiesResolver $resolver)
+    {
+        $this->resolver = $resolver;
+    }
+
     /**
      * Just before sending an email, laravel dispatches the `MessageSending` event.
      * Use this moment to update the current mail Transport configuration.
@@ -24,9 +32,9 @@ class ReconfigureMailGunOnMessageSending
             return;
         }
 
-        $from = $this->getMessageSender($event->message->getFrom());
+        $senderDomain = $this->resolver->domainNameFrom($event->message->getFrom());
 
-        ['domain' => $domain, 'secret' => $secret, 'endpoint' => $endpoint] = $this->propertiesForSender($from);
+        ['domain' => $domain, 'secret' => $secret, 'endpoint' => $endpoint] = $this->resolver->propertiesForDomain($senderDomain);
 
         $this->configureSender($domain, $secret, $endpoint);
     }
@@ -40,48 +48,6 @@ class ReconfigureMailGunOnMessageSending
         $driver = (string) Config::get('mail.driver', Config::get('mail.default'));
 
         return strtolower($driver) === 'mailgun';
-    }
-
-    /**
-     * Best effort to extract a sender email-address. This can
-     * either be passed as an array, string, or whatever SwiftMailer sends our way.
-     *
-     * @param array<mixed, mixed>|mixed $from
-     */
-    private function getMessageSender($from) : string
-    {
-        // ['info@domain.tld' => 'Acme Info'] and ['info@domain.tld']
-        if (is_array($from)) {
-            $key = array_key_first($from);
-
-            return is_string($key) ? $key : (string) ($from[0] ?? '');
-        }
-
-        return (string) $from;
-    }
-
-    /**
-     * Get the mailgun domain for a given sender/from email-address.
-     * This defaults to 'mg.{domain.tld}', but can be overwritten by
-     * setting `services.mailgun.domains.{domain.tld}` to an array;
-     * 'example.net' => ['domain' => 'custom-mg.example.net' => 'secret' => '...', 'endpoint' => '...']
-     *
-     * @note The domain and tld are transformed to lowercase.
-     *
-     * @return array{domain:string, secret:string, endpoint:string}
-     */
-    private function propertiesForSender(string $email) : array
-    {
-        $parts = explode('@', $email);
-        $domain = mb_strtolower(array_pop($parts));
-
-        $domains = (array) Config::get('services.mailgun.domains', []);
-
-        return [
-            'domain' => (string) ($domains[$domain]['domain'] ?? 'mg.' . $domain),
-            'secret' => (string) ($domains[$domain]['secret'] ?? Config::get('services.mailgun.secret')),
-            'endpoint' => (string) ($domains[$domain]['endpoint'] ?? Config::get('services.mailgun.endpoint', 'api.mailgun.net')),
-        ];
     }
 
     /**

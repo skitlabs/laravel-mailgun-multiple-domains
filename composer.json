@@ -22,7 +22,7 @@
     "extra": {
         "laravel": {
             "providers": [
-                "SkitLabs\\LaravelMailGunMultipleDomains\\ServiceProvider"
+                "SkitLabs\\LaravelMailGunMultipleDomains\\Providers\\EventServiceProvider"
             ]
         }
     },
