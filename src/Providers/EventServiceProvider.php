@@ -28,9 +28,10 @@ class EventServiceProvider extends ServiceProvider
         });
 
         $this->app->bind(ReconfigureMailGunOnMessageSending::class, static function (Application $app) : ReconfigureMailGunOnMessageSending {
-            return new ReconfigureMailGunOnMessageSending(
-                $app->get(MailGunSenderPropertiesResolver::class),
-            );
+            /** @var MailGunSenderPropertiesResolver $resolver */
+            $resolver = $app->get(MailGunSenderPropertiesResolver::class);
+
+            return new ReconfigureMailGunOnMessageSending($resolver);
         });
     }
 }
