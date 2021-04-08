@@ -7,9 +7,19 @@ use Illuminate\Mail\MailManager;
 use Illuminate\Mail\Transport\MailgunTransport;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Mail;
+use SkitLabs\LaravelMailGunMultipleDomains\Contracts\MailGunSenderPropertiesResolver;
 
 class ReconfigureMailGunOnMessageSending
 {
+    private MailGunSenderPropertiesResolver $resolver;
+    private string $mailer;
+
+    public function __construct(MailGunSenderPropertiesResolver $resolver, string $mailer = 'mailgun')
+    {
+        $this->resolver = $resolver;
+        $this->mailer = $mailer;
+    }
+
     /**
      * Just before sending an email, laravel dispatches the `MessageSending` event.
      * Use this moment to update the current mail Transport configuration.
@@ -24,64 +34,44 @@ class ReconfigureMailGunOnMessageSending
             return;
         }
 
-        $from = $this->getMessageSender($event->message->getFrom());
-
-        ['domain' => $domain, 'secret' => $secret, 'endpoint' => $endpoint] = $this->propertiesForSender($from);
+        ['domain' => $domain, 'secret' => $secret, 'endpoint' => $endpoint] = $this->resolver->propertiesForDomain(
+            $this->domainNameFrom($event->message->getFrom()),
+        );
 
         $this->configureSender($domain, $secret, $endpoint);
     }
 
-    /**
-     * Test if the configured mail driver is set to mailgun, or if no driver is configured,
-     * use the 'default' fallback.
-     */
+    /** Test if the configured mailer matches the one this handler is listening for */
     private function isUsingMailgun() : bool
     {
-        $driver = (string) Config::get('mail.driver', Config::get('mail.default'));
+        $mailer = (string) Config::get('mail.default', '');
 
-        return strtolower($driver) === 'mailgun';
+        return $mailer === $this->mailer;
     }
 
     /**
-     * Best effort to extract a sender email-address. This can
-     * either be passed as an array, string, or whatever SwiftMailer sends our way.
+     * Take an email-address (j.doe@example.net) and return the domain name (example.net).
      *
-     * @param array<mixed, mixed>|mixed $from
+     * @note The email-address can either be passed as;
+     * ['info@domain.tld' => 'Acme Info'], ['info@domain.tld'], 'info@domain.tld'
+     * @note The domain (example.net) is always returned as lower-case.
+     *
+     * @param array<string, string>|array<int, string>|string|mixed $emailAddress
      */
-    private function getMessageSender($from) : string
+    private function domainNameFrom($emailAddress) : string
     {
         // ['info@domain.tld' => 'Acme Info'] and ['info@domain.tld']
-        if (is_array($from)) {
-            $key = array_key_first($from);
+        if (is_array($emailAddress)) {
+            $key = array_key_first($emailAddress);
 
-            return is_string($key) ? $key : (string) ($from[0] ?? '');
+            $sender = is_string($key) ? $key : (string) ($emailAddress[0] ?? '');
+        } else {
+            $sender = (string) $emailAddress;
         }
 
-        return (string) $from;
-    }
+        $parts = explode('@', $sender);
 
-    /**
-     * Get the mailgun domain for a given sender/from email-address.
-     * This defaults to 'mg.{domain.tld}', but can be overwritten by
-     * setting `services.mailgun.domains.{domain.tld}` to an array;
-     * 'example.net' => ['domain' => 'custom-mg.example.net' => 'secret' => '...', 'endpoint' => '...']
-     *
-     * @note The domain and tld are transformed to lowercase.
-     *
-     * @return array{domain:string, secret:string, endpoint:string}
-     */
-    private function propertiesForSender(string $email) : array
-    {
-        $parts = explode('@', $email);
-        $domain = mb_strtolower(array_pop($parts));
-
-        $domains = (array) Config::get('services.mailgun.domains', []);
-
-        return [
-            'domain' => (string) ($domains[$domain]['domain'] ?? 'mg.' . $domain),
-            'secret' => (string) ($domains[$domain]['secret'] ?? Config::get('services.mailgun.secret')),
-            'endpoint' => (string) ($domains[$domain]['endpoint'] ?? Config::get('services.mailgun.endpoint', 'api.mailgun.net')),
-        ];
+        return mb_strtolower(array_pop($parts));
     }
 
     /**
@@ -100,7 +90,7 @@ class ReconfigureMailGunOnMessageSending
      */
     private function configureSender(string $domain, string $secret, string $endpoint) : void
     {
-        $transport = Mail::mailer('mailgun')->getSwiftMailer()->getTransport();
+        $transport = Mail::mailer($this->mailer)->getSwiftMailer()->getTransport();
 
         if (! $transport instanceof MailgunTransport) {
             throw new \RuntimeException('Non mailgun transport returned!');
