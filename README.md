@@ -38,9 +38,8 @@ composer require skitlabs/laravel-mailgun-multiple-domains
 There are a few requirements for this to work;
 
 * PHP 8.0, or 7.4
-* Laravel >= 8.0 (although it will _likely_ work on any version >= 5.5)
+* Laravel >= 7.0
 * Laravel needs to use `swiftmailer/swiftmailer` internally (default)
-* Your configured mailer (for mailgun) is named `mailgun` (default)
 
 ## Usage
 
@@ -106,6 +105,25 @@ class AppServiceProvider extends ServiceProvider
         });
     }
 }
+```
+
+### What if my mailer has a different name?
+Specify the name of your mailer, as the second argument, when instantiating `ReconfigureMailGunOnMessageSending`.   
+
+```php
+<?php declare(strict_types=1);
+
+use Illuminate\Support\Facades\Config;
+use SkitLabs\LaravelMailGunMultipleDomains\Contracts\MailGunSenderPropertiesResolver;
+use SkitLabs\LaravelMailGunMultipleDomains\Listeners\ReconfigureMailGunOnMessageSending;
+
+Config::set('mail.default', 'custom-mailer-name');
+Config::set('mail.mailers.custom-mailer-name', [
+    'transport' => 'mailgun',
+]);
+
+/** @var MailGunSenderPropertiesResolver $resolver */
+$handler = new ReconfigureMailGunOnMessageSending($resolver, 'custom-mailer-name'); 
 ```
 
 ## Testing

@@ -3,6 +3,7 @@
 namespace SkitLabs\LaravelMailGunMultipleDomains\Tests\Feature;
 
 use Illuminate\Events\Dispatcher;
+use Illuminate\Foundation\Application;
 use Illuminate\Mail\Events\MessageSending;
 use Illuminate\Mail\Transport\MailgunTransport;
 use Illuminate\Support\Facades\Config;
@@ -167,6 +168,53 @@ class MailGunMultipleDomainTest extends TestCase
         $this->sendFakedEmail('foo@bar.baz', static fn () => false);
 
         $this->assertTrue($resolver->propertiesResolved);
+    }
+
+    /**
+     * Make sure the default properties do not match our assert.
+     * So the test will only pass if the event handler kicks in
+     * and reconfigures the transport. Meaning that $mailer,
+     * assigned to the handler has to match the one in Config.
+     *
+     * @see ReconfigureMailGunOnMessageSending::isUsingMailgun()
+     *
+     * @test
+     */
+    public function consumer_can_use_custom_mailer_name() : void
+    {
+        Config::set('mail.default', 'custom-mailer-name');
+        Config::set('mail.mailers.custom-mailer-name', [
+            'transport' => 'mailgun',
+        ]);
+        Config::set('services.mailgun', [
+            'domain' => 'foo.bar.baz',
+            'secret' => 'hunter42',
+            'endpoint' => 'api.mailgun.net',
+            'domains' => [
+                'example.com' => [
+                    'domain' => 'mg.example.com',
+                    'secret' => 'super-duper-secret',
+                    'endpoint' => 'non-standard.mailgun.net',
+                ],
+            ],
+        ]);
+
+        $this->app->bind(ReconfigureMailGunOnMessageSending::class, static function (Application $app) : ReconfigureMailGunOnMessageSending {
+            /** @var MailGunSenderPropertiesResolver $resolver */
+            $resolver = $app->get(MailGunSenderPropertiesResolver::class);
+
+            return new ReconfigureMailGunOnMessageSending($resolver, 'custom-mailer-name');
+        });
+
+        $this->sendFakedEmail('test@example.com', function () : void {
+            /** @var MailgunTransport $transport */
+            $transport = Mail::mailer()->getSwiftMailer()->getTransport();
+
+            $this->assertInstanceOf(MailgunTransport::class, $transport);
+            $this->assertEquals('mg.example.com', $transport->getDomain());
+            $this->assertEquals('super-duper-secret', $transport->getKey());
+            $this->assertEquals('non-standard.mailgun.net', $transport->getEndpoint());
+        });
     }
 
     private function sendFakedEmail(string $from, \Closure $closure) : void

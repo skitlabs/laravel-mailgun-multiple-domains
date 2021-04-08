@@ -12,10 +12,12 @@ use SkitLabs\LaravelMailGunMultipleDomains\Contracts\MailGunSenderPropertiesReso
 class ReconfigureMailGunOnMessageSending
 {
     private MailGunSenderPropertiesResolver $resolver;
+    private string $mailer;
 
-    public function __construct(MailGunSenderPropertiesResolver $resolver)
+    public function __construct(MailGunSenderPropertiesResolver $resolver, string $mailer = 'mailgun')
     {
         $this->resolver = $resolver;
+        $this->mailer = $mailer;
     }
 
     /**
@@ -39,15 +41,12 @@ class ReconfigureMailGunOnMessageSending
         $this->configureSender($domain, $secret, $endpoint);
     }
 
-    /**
-     * Test if the configured mail driver is set to mailgun, or if no driver is configured,
-     * use the 'default' fallback.
-     */
+    /** Test if the configured mailer matches the one this handler is listening for */
     private function isUsingMailgun() : bool
     {
-        $driver = (string) Config::get('mail.driver', Config::get('mail.default'));
+        $mailer = (string) Config::get('mail.default', '');
 
-        return strtolower($driver) === 'mailgun';
+        return $mailer === $this->mailer;
     }
 
     /**
@@ -91,7 +90,7 @@ class ReconfigureMailGunOnMessageSending
      */
     private function configureSender(string $domain, string $secret, string $endpoint) : void
     {
-        $transport = Mail::mailer('mailgun')->getSwiftMailer()->getTransport();
+        $transport = Mail::mailer($this->mailer)->getSwiftMailer()->getTransport();
 
         if (! $transport instanceof MailgunTransport) {
             throw new \RuntimeException('Non mailgun transport returned!');
