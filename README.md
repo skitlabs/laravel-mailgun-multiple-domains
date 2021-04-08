@@ -91,28 +91,9 @@ return [
 ];
 ```
 
-### What if my mailer has a different name?
-Specify the name of your mailer, as the second argument, when instantiating `ReconfigureMailGunOnMessageSending`.
-
-```php
-<?php declare(strict_types=1);
-
-use Illuminate\Support\Facades\Config;
-use SkitLabs\LaravelMailGunMultipleDomains\Contracts\MailGunSenderPropertiesResolver;
-use SkitLabs\LaravelMailGunMultipleDomains\Listeners\ReconfigureMailGunOnMessageSending;
-
-Config::set('mail.default', 'custom-mailer-name');
-Config::set('mail.mailers.custom-mailer-name', [
-    'transport' => 'mailgun',
-]);
-
-/** @var MailGunSenderPropertiesResolver $resolver */
-$handler = new ReconfigureMailGunOnMessageSending($resolver, 'custom-mailer-name'); 
-```
-
 ### What if I need to customize how these settings are determined?
-If the standard way of resolving sender properties is not suitable for your use-case, create a custom resolver that implements [MailGunSenderPropertiesResolver](src/Contracts/MailGunSenderPropertiesResolver.php). 
-See the [default implementation](src/Resolvers/MailGunSenderPropertiesFromServiceConfigResolver.php) for inspiration.   
+If the standard way of resolving sender properties is not suitable for your use-case, create a custom resolver that implements [MailGunSenderPropertiesResolver](src/Contracts/MailGunSenderPropertiesResolver.php).
+See the [default implementation](src/Resolvers/MailGunSenderPropertiesFromServiceConfigResolver.php) for inspiration.
 
 Once you have your own concrete implementation, overwrite the default bind in any of your service providers;
 
@@ -134,6 +115,25 @@ class AppServiceProvider extends ServiceProvider
         });
     }
 }
+```
+
+### What if my mailer has a different name?
+Specify the name of your mailer, as the second argument, when instantiating `ReconfigureMailGunOnMessageSending`.
+
+```php
+<?php declare(strict_types=1);
+
+use Illuminate\Support\Facades\Config;
+use SkitLabs\LaravelMailGunMultipleDomains\Contracts\MailGunSenderPropertiesResolver;
+use SkitLabs\LaravelMailGunMultipleDomains\Listeners\ReconfigureMailGunOnMessageSending;
+
+Config::set('mail.default', 'custom-mailer-name');
+Config::set('mail.mailers.custom-mailer-name', [
+    'transport' => 'mailgun',
+]);
+
+/** @var MailGunSenderPropertiesResolver $resolver */
+$handler = new ReconfigureMailGunOnMessageSending($resolver, 'custom-mailer-name'); 
 ```
 
 ## Testing
