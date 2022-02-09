@@ -24,6 +24,7 @@
         </testsuite>
     </testsuites>
     <php>
+        <env name="APP_ENV" value="testing"/>
         <env name="MAIL_MAILER" value="mailgun"/>
         <env name="MAILGUN_DOMAIN" value="foo.bar.baz"/>
         <env name="MAILGUN_SECRET" value="qwe-asd-zxc"/>

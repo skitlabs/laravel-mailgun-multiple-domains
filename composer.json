@@ -11,12 +11,12 @@
     ],
     "autoload": {
         "psr-4": {
-            "SkitLabs\\LaravelMailGunMultipleDomains\\": "src"
+            "SkitLabs\\LaravelMailGunMultipleDomains\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "SkitLabs\\LaravelMailGunMultipleDomains\\Tests\\": "tests"
+            "SkitLabs\\LaravelMailGunMultipleDomains\\Tests\\": "tests/"
         }
     },
     "extra": {
@@ -27,16 +27,21 @@
         }
     },
     "require": {
-        "php": "^7.4|^8.0"
+        "php": "^8.0|^8.1"
     },
     "require-dev": {
-        "orchestra/testbench": "^6.0",
         "phpunit/phpunit": "^9.5",
-        "symfony/var-dumper": "^5.2",
         "guzzlehttp/guzzle": "^7.2",
-        "phpstan/phpstan": "^0.12.80",
+        "phpstan/phpstan": "^1.4",
         "vimeo/psalm": "^4.6",
-        "illuminate/contracts": "^8.29"
+        "orchestra/testbench": "^7.0",
+        "illuminate/contracts": "^9.0",
+        "symfony/var-dumper": "^6.0",
+        "symfony/mailgun-mailer": "^6.0",
+        "symfony/http-client": "^6.0"
+    },
+    "conflict": {
+        "laravel/framework": "^8.0"
     },
     "scripts": {
         "analyse": ["@phpstan", "@psalm"],
