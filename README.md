@@ -53,6 +53,13 @@ There are a few requirements for this to work;
 * Laravel >= 9.0
 * Laravel needs to use `symfony/mailer` internally (default)
 
+#### Older versions
+Not using laravel 9 (yet)? Version 2 of this package supports laravel 7 and 8.
+
+```bash
+composer require skitlabs/laravel-mailgun-multiple-domains=^2.0
+```
+
 ## Usage
 
 If you've configured mailgun under `mg.{domain.tld}`, and your secret works for all domains you are sending from; you're ready to start sending e-mail! 👍     
