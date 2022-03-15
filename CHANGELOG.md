@@ -2,7 +2,7 @@ Changelog
 
 All notable changes will be documented in this file.   
 
-3.0.0 - 2022-02-09
+3.0.0 - 2022-03-15
 
     Support for laravel 9 🎉
 
