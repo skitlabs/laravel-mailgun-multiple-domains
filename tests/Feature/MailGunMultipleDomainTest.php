@@ -5,7 +5,8 @@ namespace SkitLabs\LaravelMailGunMultipleDomains\Tests\Feature;
 use Illuminate\Events\Dispatcher;
 use Illuminate\Foundation\Application;
 use Illuminate\Mail\Events\MessageSending;
-use Illuminate\Mail\Transport\MailgunTransport;
+use SkitLabs\LaravelMailGunMultipleDomains\Tests\Helpers\TransportWrapper;
+use Symfony\Component\Mailer\Bridge\Mailgun\Transport\MailgunApiTransport;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Mail;
 use SkitLabs\LaravelMailGunMultipleDomains\Contracts\MailGunSenderPropertiesResolver;
@@ -21,9 +22,11 @@ class MailGunMultipleDomainTest extends TestCase
         parent::setUp();
 
         // Assert that our Listener is set up to receive the event
-        $isConfigured = collect(
-                resolve(Dispatcher::class)->getListeners(MessageSending::class)
-            )->filter(static function (\Closure $wrapper) : bool {
+        /** @var Dispatcher $dispatcher */
+        $dispatcher = resolve(Dispatcher::class);
+
+        $isConfigured = collect($dispatcher->getListeners(MessageSending::class))
+            ->filter(static function (\Closure $wrapper) : bool {
                 $listener = (new \ReflectionFunction($wrapper))->getStaticVariables()['listener'] ?? null;
 
                 return $listener === ReconfigureMailGunOnMessageSending::class;
@@ -32,13 +35,13 @@ class MailGunMultipleDomainTest extends TestCase
         $this->assertTrue($isConfigured);
 
         // Invoke the mailer once, and verify that 'phpunit.xml' env is set
-        /** @var MailgunTransport $transport */
-        $transport = Mail::mailer()->getSwiftMailer()->getTransport();
+        $transport = $this->getTransport();
 
-        $this->assertInstanceOf(MailgunTransport::class, $transport);
-        $this->assertEquals('foo.bar.baz', $transport->getDomain());
-        $this->assertEquals('qwe-asd-zxc', $transport->getKey());
-        $this->assertEquals('api.mailgun.net', $transport->getEndpoint());
+        if ($transport->unwrap() instanceof MailgunApiTransport) {
+            $this->assertEquals('foo.bar.baz', $transport->getDomain());
+            $this->assertEquals('qwe-asd-zxc', $transport->getKey());
+            $this->assertEquals('api.mailgun.net', $transport->getEndpoint());
+        }
     }
 
     /** @test */
@@ -46,13 +49,12 @@ class MailGunMultipleDomainTest extends TestCase
     {
         Config::set('mail.default', 'smtp');
 
-        $originalTransport = clone Mail::mailer()->getSwiftMailer()->getTransport();
+        $originalTransport = clone Mail::mailer()->getSymfonyTransport();
 
         $this->sendFakedEmail('foo@example.net', function () use ($originalTransport) : void {
-            /** @var MailgunTransport $transport */
-            $transport = Mail::mailer()->getSwiftMailer()->getTransport();
+            $transport = $this->getTransport()->unwrap();
 
-            $this->assertNotInstanceOf(MailgunTransport::class, $transport);
+            $this->assertNotInstanceOf(MailgunApiTransport::class, $transport);
             $this->assertEquals($originalTransport, $transport);
         });
     }
@@ -69,10 +71,9 @@ class MailGunMultipleDomainTest extends TestCase
         ]);
 
         $this->sendFakedEmail('foo@example.net', function () : void {
-            /** @var MailgunTransport $transport */
-            $transport = Mail::mailer()->getSwiftMailer()->getTransport();
+            $transport = $this->getTransport();
 
-            $this->assertInstanceOf(MailgunTransport::class, $transport);
+            $this->assertInstanceOf(MailgunApiTransport::class, $transport->unwrap());
             $this->assertEquals('custom-mg.example.net', $transport->getDomain());
             $this->assertEquals('123-456-789', $transport->getKey());
             $this->assertEquals('api.eu.mailgun.net', $transport->getEndpoint());
@@ -96,10 +97,9 @@ class MailGunMultipleDomainTest extends TestCase
         ]);
 
         $this->sendFakedEmail('foo@example.net', function () : void {
-            /** @var MailgunTransport $transport */
-            $transport = Mail::mailer()->getSwiftMailer()->getTransport();
+            $transport = $this->getTransport();
 
-            $this->assertInstanceOf(MailgunTransport::class, $transport);
+            $this->assertInstanceOf(MailgunApiTransport::class, $transport->unwrap());
             $this->assertEquals('custom-mg.example.net', $transport->getDomain());
             $this->assertEquals('123-456-789', $transport->getKey());
             $this->assertEquals('api.eu.mailgun.net', $transport->getEndpoint());
@@ -108,10 +108,9 @@ class MailGunMultipleDomainTest extends TestCase
         $this->resetListeners();
 
         $this->sendFakedEmail('marketing@awesome.app', function () : void {
-            /** @var MailgunTransport $transport */
-            $transport = Mail::mailer()->getSwiftMailer()->getTransport();
+            $transport = $this->getTransport();
 
-            $this->assertInstanceOf(MailgunTransport::class, $transport);
+            $this->assertInstanceOf(MailgunApiTransport::class, $transport->unwrap());
             $this->assertEquals('mg-marketing.awesome.app', $transport->getDomain());
             $this->assertEquals('abc-def-ghi', $transport->getKey());
             $this->assertEquals('api.mailgun.net', $transport->getEndpoint());
@@ -124,10 +123,9 @@ class MailGunMultipleDomainTest extends TestCase
         Config::set('services.mailgun.domains', []);
 
         $this->sendFakedEmail('foo@example.net', function () : void {
-            /** @var MailgunTransport $transport */
-            $transport = Mail::mailer()->getSwiftMailer()->getTransport();
+            $transport = $this->getTransport();
 
-            $this->assertInstanceOf(MailgunTransport::class, $transport);
+            $this->assertInstanceOf(MailgunApiTransport::class, $transport->unwrap());
             $this->assertEquals('mg.example.net', $transport->getDomain());
             $this->assertEquals('qwe-asd-zxc', $transport->getKey());
             $this->assertEquals('api.mailgun.net', $transport->getEndpoint());
@@ -138,7 +136,11 @@ class MailGunMultipleDomainTest extends TestCase
     public function uses_default_resolver() : void
     {
         $this->assertTrue($this->app->has(MailGunSenderPropertiesResolver::class));
-        $this->assertEquals(MailGunSenderPropertiesFromServiceConfigResolver::class, get_class($this->app->get(MailGunSenderPropertiesResolver::class)));
+
+        $this->assertEquals(
+            MailGunSenderPropertiesFromServiceConfigResolver::class,
+            get_class($this->app->get(MailGunSenderPropertiesResolver::class)),
+        );
     }
 
     /** @test */
@@ -207,14 +209,18 @@ class MailGunMultipleDomainTest extends TestCase
         });
 
         $this->sendFakedEmail('test@example.com', function () : void {
-            /** @var MailgunTransport $transport */
-            $transport = Mail::mailer()->getSwiftMailer()->getTransport();
+            $transport = $this->getTransport();
 
-            $this->assertInstanceOf(MailgunTransport::class, $transport);
+            $this->assertInstanceOf(MailgunApiTransport::class, $transport->unwrap());
             $this->assertEquals('mg.example.com', $transport->getDomain());
             $this->assertEquals('super-duper-secret', $transport->getKey());
             $this->assertEquals('non-standard.mailgun.net', $transport->getEndpoint());
         });
+    }
+
+    private function getTransport(?string $name = null) : TransportWrapper
+    {
+        return new TransportWrapper(Mail::mailer($name)->getSymfonyTransport());
     }
 
     private function sendFakedEmail(string $from, \Closure $closure) : void

@@ -49,9 +49,16 @@ It then reconfigures the current `Transport`, based on the `from` domain in the 
 ### Requirements
 There are a few requirements for this to work;
 
-* PHP 8.0, or 7.4
-* Laravel >= 7.0
-* Laravel needs to use `swiftmailer/swiftmailer` internally (default)
+* PHP 8.0, or 8.1
+* Laravel >= 9.0
+* Laravel needs to use `symfony/mailer` internally (default)
+
+#### Older versions
+Not using laravel 9 (yet)? Version 2 of this package supports laravel 7 and 8.
+
+```bash
+composer require skitlabs/laravel-mailgun-multiple-domains=^2.0
+```
 
 ## Usage
 

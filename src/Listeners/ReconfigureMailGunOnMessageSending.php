@@ -4,10 +4,11 @@ namespace SkitLabs\LaravelMailGunMultipleDomains\Listeners;
 
 use Illuminate\Mail\Events\MessageSending;
 use Illuminate\Mail\MailManager;
-use Illuminate\Mail\Transport\MailgunTransport;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Mail;
 use SkitLabs\LaravelMailGunMultipleDomains\Contracts\MailGunSenderPropertiesResolver;
+use Symfony\Component\Mailer\Bridge\Mailgun\Transport\MailgunApiTransport;
+use Symfony\Component\Mime\Address;
 
 class ReconfigureMailGunOnMessageSending
 {
@@ -35,7 +36,7 @@ class ReconfigureMailGunOnMessageSending
         }
 
         ['domain' => $domain, 'secret' => $secret, 'endpoint' => $endpoint] = $this->resolver->propertiesForDomain(
-            $this->domainNameFrom($event->message->getFrom()),
+            $this->domainNameFrom(... $event->message->getFrom()),
         );
 
         $this->configureSender($domain, $secret, $endpoint);
@@ -52,24 +53,17 @@ class ReconfigureMailGunOnMessageSending
     /**
      * Take an email-address (j.doe@example.net) and return the domain name (example.net).
      *
-     * @note The email-address can either be passed as;
-     * ['info@domain.tld' => 'Acme Info'], ['info@domain.tld'], 'info@domain.tld'
+     * @note Only the _first_ sender domain is considered.
      * @note The domain (example.net) is always returned as lower-case.
-     *
-     * @param array<string, string>|array<int, string>|string|mixed $emailAddress
      */
-    private function domainNameFrom($emailAddress) : string
+    private function domainNameFrom(Address ... $addresses) : string
     {
-        // ['info@domain.tld' => 'Acme Info'] and ['info@domain.tld']
-        if (is_array($emailAddress)) {
-            $key = array_key_first($emailAddress);
-
-            $sender = is_string($key) ? $key : (string) ($emailAddress[0] ?? '');
-        } else {
-            $sender = (string) $emailAddress;
+        $from = $addresses[0] ?? null;
+        if (! $from instanceof Address) {
+            throw new \RuntimeException('No sender set, impossible to determine sender domain!');
         }
 
-        $parts = explode('@', $sender);
+        $parts = explode('@', $from->getAddress());
 
         return mb_strtolower(array_pop($parts));
     }
@@ -81,23 +75,17 @@ class ReconfigureMailGunOnMessageSending
      * Another option would be to `App::get(MailManager::class)`, purge and re-resolve.
      *
      * Through the event, we need to reconfigure the current instance of the mailer. This
-     * makes the assumption that Laravel is using the `swift-mailer` package internally.
+     * makes the assumption that Laravel is using the `symfony/mailgun-mailer` internally.
      *
-     * Either replace the current swift-mailer instance (setSwiftMailer), or specifically
-     * patch the `MailgunTransport` when returned.
+     * Here we swap out the transport for a new `MailgunApiTransport`, created with our
+     * specific sender settings.
      *
-     * @see MailManager::createSwiftMailer
+     * @see MailManager::createMailgunTransport
      */
     private function configureSender(string $domain, string $secret, string $endpoint) : void
     {
-        $transport = Mail::mailer($this->mailer)->getSwiftMailer()->getTransport();
-
-        if (! $transport instanceof MailgunTransport) {
-            throw new \RuntimeException('Non mailgun transport returned!');
-        }
-
-        $transport->setDomain($domain);
-        $transport->setKey($secret);
-        $transport->setEndpoint($endpoint);
+        Mail::mailer($this->mailer)->setSymfonyTransport(
+            (new MailgunApiTransport($secret, $domain, null))->setHost($endpoint),
+        );
     }
 }
